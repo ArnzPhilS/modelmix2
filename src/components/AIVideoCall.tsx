@@ -54,6 +54,15 @@ export const AIVideoCall: React.FC<AIVideoCallProps> = ({ isOpen, onClose }) => 
 
     try {
       const userTier = getCurrentTier();
+      
+      // First test if we can access the replica
+      console.log('Testing replica access...');
+      const canAccessReplica = await tavusService.testReplicaAccess(userTier);
+      if (!canAccessReplica) {
+        throw new Error('Cannot access the AI replica. Please check your API key permissions or contact support.');
+      }
+      
+      console.log('Replica access confirmed, creating conversation...');
       const response = await tavusService.createConversation(
         conversationName.trim(),
         conversationContext.trim(),
@@ -290,6 +299,12 @@ export const AIVideoCall: React.FC<AIVideoCallProps> = ({ isOpen, onClose }) => 
                 {error.includes('API key') && (
                   <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded">
                     💡 <strong>Tip:</strong> Make sure a valid Tavus API key is configured in the Admin Dashboard under Global API Keys.
+                  </div>
+                )}
+                
+                {error.includes('replica') && (
+                  <div className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded">
+                    💡 <strong>Tip:</strong> The AI replica may not be accessible with your API key. Please contact support.
                   </div>
                 )}
                 

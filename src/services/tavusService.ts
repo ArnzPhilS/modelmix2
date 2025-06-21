@@ -5,6 +5,7 @@ interface TavusConversationRequest {
   replica_id: string;
   conversation_name?: string;
   conversation_context?: string;
+  callback_url?: string;
 }
 
 interface TavusConversationResponse {
@@ -29,8 +30,8 @@ class TavusService {
       throw new Error('Tavus API key not available. Please configure it in settings or contact support for global key access.');
     }
 
-    // CRITICAL: Fix the request body format according to Tavus API documentation
-    const requestBody: TavusConversationRequest = {
+    // Try different request formats based on Tavus API documentation
+    const requestBody = {
       replica_id: this.REPLICA_ID,
       conversation_name: conversationName,
       conversation_context: conversationContext
@@ -42,7 +43,8 @@ class TavusService {
         'Content-Type': 'application/json',
         'x-api-key': apiKey ? 'present' : 'missing'
       },
-      body: requestBody
+      body: requestBody,
+      replicaId: this.REPLICA_ID
     });
 
     try {
@@ -69,6 +71,10 @@ class TavusService {
         
         // Provide more specific error messages
         if (response.status === 400) {
+          // Check if it's a replica ID issue
+          if (errorData.message && errorData.message.includes('replica')) {
+            throw new Error(`Invalid replica ID: The replica '${this.REPLICA_ID}' may not exist or be accessible with your API key.`);
+          }
           throw new Error(`Invalid request: ${errorData.message || 'Please check your conversation details and try again.'}`);
         } else if (response.status === 401) {
           throw new Error('Invalid API key. Please check your Tavus API key configuration.');
@@ -100,6 +106,32 @@ class TavusService {
       }
       
       throw error;
+    }
+  }
+
+  // Alternative method to test the replica ID first
+  async testReplicaAccess(userTier: UserTier = 'tier1'): Promise<boolean> {
+    const apiKey = await this.getApiKey(userTier);
+    
+    if (!apiKey) {
+      return false;
+    }
+
+    try {
+      // Test if we can access the replica
+      const response = await fetch(`${this.API_BASE_URL}/replicas/${this.REPLICA_ID}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        }
+      });
+
+      console.log('Replica access test:', response.status);
+      return response.ok;
+    } catch (error) {
+      console.error('Replica access test failed:', error);
+      return false;
     }
   }
 
